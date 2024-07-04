@@ -63,15 +63,47 @@ The allowed output for move is one of these: ["fold", "check", "raise", "call", 
 The allowed output for amount is a positive integar, that is not larger than your stack (and not smaller than the min_raise if you are raising)
 If move is raise, amount is the amount to raise by, if not, amount is ignored.
 """
-def yourTurn(gameState, yourPlayersIndex, yourHand):
+def raiseBot(gameState, yourPlayersIndex, yourHand):
     move: str = "raise"
     amount: int = 200
 
-    if gameState["players"][yourPlayersIndex]["bet"] > 100:
-        move = "call"
-        # amount = gameState["small_blind_amount"]
-    move = "allin"
+    return move, amount
 
-    # WRITE YOUR CODE HERE
+def callBot(gameState, yourPlayersIndex, yourHand):
+    move: str = "call"
+    amount: int = 0
+
+    return move, amount
+
+def checkBot(gameState, yourPlayersIndex, yourHand):
+    move: str = "check"
+    amount: int = 0
+
+    return move, amount
+
+def foldBot(gameState, yourPlayersIndex, yourHand):
+    move: str = "fold"
+    amount: int = 0
+
+    return move, amount
+
+def allinBot(gameState, yourPlayersIndex, yourHand):
+    move: str = "allin"
+    amount: int = 0
+
+    return move, amount
+
+
+def manualBot(gamesState, yourPlayersIndex, yourHand):
+    move = -1
+    movarr = ["fold", "check", "raise", "call", "allin"]
+    print("\nfold: 0\ncheck: 1\nraise: 2\ncall: 3\nallin: 4")
+    while move < 0 or move > 4:
+        move = int(input("Enter move: "))
+
+    print(movarr[move], "selected")
+    amount = int(input("Enter ammount: "))
+    move = movarr[move]
+    print("Ammount:", amount)
 
     return move, amount

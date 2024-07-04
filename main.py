@@ -1,27 +1,43 @@
 import copy
 import random
 
-from testBot import yourTurn as testbot
+NUMBER_OF_ROUNDS = 1
+STACK = 1000
+
+from exampleBots import raiseBot
+from exampleBots import manualBot
+from exampleBots import checkBot
+from exampleBots import callBot
+from exampleBots import foldBot
+from exampleBots import allinBot
 PLAYERS = [
     {
-        "name": "Jens",
-        "bot": testbot
+        "name": "manualBot",
+        "bot": manualBot,
+        "stack": STACK
     },
     {
-        "name": "Abraham",
-        "bot": testbot
+        "name": "raiseBot",
+        "bot": raiseBot,
+        "stack": STACK
     },
     {
-        "name": "Jonas",
-        "bot": testbot
+        "name": "callBot",
+        "bot": callBot,
+        "stack": STACK
     },
     {
-        "name": "Berit",
-        "bot": testbot
+        "name": "checkBot",
+        "bot": checkBot,
+        "stack": STACK
+    },
+    {
+        "name": "foldBot",
+        "bot": foldBot,
+        "stack": STACK
     }
 ]
 
-NUMBER_OF_ROUNDS = 1
 
 
 class Deck():
@@ -70,7 +86,7 @@ class GameEngine():
     
     def initPlayers(self):
         for player in PLAYERS:
-            self.players.append(Player(player["name"], player["bot"]))
+            self.players.append(Player(player["name"], player["bot"], player["stack"]))
     
     def generate_gamestate(self):
         return {
@@ -84,6 +100,13 @@ class GameEngine():
             "min_raise": self.min_raise,
             "max_raise": self.max_raise,
         }
+    
+    def print_gamestate(self):
+        print()
+        print(f"{'PlayerName':<15}{'Bet':<10}{'Stack':<10}{'HasFolded':<15}{'IsAllIn':<10}")
+        for player in self.players:
+            print(f"{player.name:<15}{player.bet:<10}{player.stack:<10}{str(player.hasFolded):<15}{str(player.isAllIn):<10}")
+        print()
     
     def deal_cards(self):
         self.deck.shuffle_and_reset()
@@ -108,7 +131,7 @@ class GameEngine():
         
     
     def play_round(self):
-        print("Starting round")
+        print("\n-----Starting new round-----\n")
         self.deal_cards()
         self.reset_bet_fold_and_allin()
 
@@ -157,8 +180,17 @@ class GameEngine():
 
             
             if self.players[playing_player].hasFolded or self.players[playing_player].isAllIn:
+                if self.players[playing_player].isAllIn:
+                    print(self.players[playing_player].name, "is already all in")
+                elif self.players[playing_player].hasFolded:
+                    print(self.players[playing_player].name, "has already folded")
+                else:
+                    # print("ERROR, player hasFolded or isAllIn is not True, player:", self.players[playing_player].name)
+                    assert False, "\n\nERROR, player hasFolded or isAllIn is not True, player: " + self.players[playing_player].name
                 playing_player = (playing_player + 1) % len(self.players)
                 continue
+            
+            self.print_gamestate()
 
             playermove = self.player_play(self.players[playing_player])
 
@@ -169,9 +201,9 @@ class GameEngine():
                 if players_left == 1:
                     # print the name of the only player left
                     for player in self.players:
-                        print("checking player folded: ", player.name, player.hasFolded)
+                        # print("checking player folded: ", player.name, player.hasFolded)
                         if not player.hasFolded:
-                            print("Winner: ", player.name)
+                            print("Winner of this round: ", player.name)
                             return
             # CALL or CHECK
             if playermove == "check" or playermove == "call":
@@ -190,8 +222,8 @@ class GameEngine():
             if self.players[playing_player].stack == 0:
                 self.players[playing_player].isAllIn = True
 
-            for player in self.players:
-                print(player.name, player.bet)
+            # for player in self.players:
+            #     print(player.name, player.bet)
 
             playing_player = (playing_player + 1) % len(self.players)
                     
@@ -453,11 +485,13 @@ class GameEngine():
 
 
 class Player():
-    def __init__(self, name, botFunction):
+    def __init__(self, name, botFunction, stack):
         self.name = name
+        print("Player:", name, "joined the game")
+        assert len(name) > 0 and len(name) <= 12, "\n\nPlayer name must be between 1 and 12 characters long"
         self.botFunction = botFunction
         self.hand = [None, None]
-        self.stack = 1000
+        self.stack = stack
         self.bet = 0
         self.hasFolded = False
         self.isAllIn = False
@@ -536,8 +570,10 @@ class Player():
                     print("ERROR, raise amount is more than max_raise, player:", self.name)
                     return "fold", 0
             if amount > self.stack:
-                print("ERROR, raise amount is more than stack, player:", self.name)
-                return "fold", 0
+                print("Raise amount is more than stack, player:", self.name, "goes all in")
+                self.bet += self.stack
+                self.stack = 0
+                return "allin", 0
             
             self.stack -= amount
             self.bet += amount
