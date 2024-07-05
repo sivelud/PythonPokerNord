@@ -10,12 +10,45 @@ from exampleBots import checkBot
 from exampleBots import callBot
 from exampleBots import foldBot
 from exampleBots import allinBot
-PLAYERS = [
+PLAYERS_manual = [
+    {
+        "name": "manualBot",
+        "bot": manualBot,
+        "stack": STACK *10
+    },
     # {
-    #     "name": "manualBot",
-    #     "bot": manualBot,
-    #     "stack": STACK + 10000
+    #     "name": "raiseBot",
+    #     "bot": raiseBot,
+    #     "stack": STACK
     # },
+    # {
+    #     "name": "callBot",
+    #     "bot": callBot,
+    #     "stack": STACK
+    # },
+    # {
+    #     "name": "checkBot",
+    #     "bot": checkBot,
+    #     "stack": STACK
+    # },
+    # {
+    #     "name": "foldBot",
+    #     "bot": foldBot,
+    #     "stack": STACK
+    # },
+    {
+        "name": "allinBot",
+        "bot": allinBot,
+        "stack": STACK
+    },
+    # {
+    #     "name": "allin2",
+    #     "bot": allinBot,
+    #     "stack": STACK
+    # }
+]
+
+PLAYERS_auto =     [
     {
         "name": "raiseBot",
         "bot": raiseBot,
@@ -41,12 +74,9 @@ PLAYERS = [
         "bot": allinBot,
         "stack": STACK
     },
-    # {
-    #     "name": "allin2",
-    #     "bot": allinBot,
-    #     "stack": STACK
-    # }
-]
+    ]
+
+PLAYERS = PLAYERS_auto
 
 def test_total_money(players, total, id):
     total_money = 0
@@ -75,15 +105,15 @@ class Deck():
         return self.deck.pop(0)
 
 
-ROYAL_FLUSH_VALUE =     90000014
-STRAIGHT_FLUSH_VALUE =  90000000
-FOUR_OF_A_KIND_VALUE =  80000000
-FULL_HOUSE_VALUE =      70000000
-FLUSH_VALUE =           60000000
-STRAIGHT_VALUE =        50000000
-THREE_OF_A_KIND_VALUE = 40000000
-TWO_PAIR_VALUE =        30000000
-PAIR_VALUE =            20000000
+ROYAL_FLUSH_VALUE =     900000014
+STRAIGHT_FLUSH_VALUE =  900000000
+FOUR_OF_A_KIND_VALUE =  800000000
+FULL_HOUSE_VALUE =      700000000
+FLUSH_VALUE =           600000000
+STRAIGHT_VALUE =        500000000
+THREE_OF_A_KIND_VALUE = 400000000
+TWO_PAIR_VALUE =        300000000
+PAIR_VALUE =            200000000
     
 
 
@@ -91,17 +121,23 @@ class GameEngine():
     def __init__(self):
         self.players = []
         self.initPlayers()
-        self.total_pot = STACK * len(self.players)
+        self.init_total_stack()
         print("Total pot: ", self.total_pot)
         self.deck = Deck()
         self.table_cards = [None, None, None, None, None]
-        self.dealer = 0
+        self.dealer = random.randint(0, len(self.players) - 1)
         self.small_blind_amount = 10
-        self.small_blind_player = 1
         self.big_blind_amount = 20
-        self.big_blind_player = 2
+        self.rotate_dealer_and_blinds()
         self.min_raise = 1
         self.max_raise = None
+
+    def init_total_stack(self):
+        total = 0
+        for player in self.players:
+            total += player.stack
+        self.total_pot = total
+        
         
     
     def initPlayers(self):
@@ -156,10 +192,16 @@ class GameEngine():
             assert player.stack > 0, "\n\nPlayer stack is 0 or less, player: " + player.name + " stack: " + str(player.stack)
 
     def rotate_dealer_and_blinds(self):
-        self.dealer = (self.dealer + 1) % len(self.players)
-        self.small_blind_player = (self.dealer + 1) % len(self.players)
-        self.big_blind_player = (self.small_blind_player + 1) % len(self.players)
-    
+        if len(self.players) > 2:
+            self.dealer = (self.dealer + 1) % len(self.players)
+            self.small_blind_player = (self.dealer + 1) % len(self.players)
+            self.big_blind_player = (self.small_blind_player + 1) % len(self.players)
+            
+        else:
+            self.dealer = (self.dealer + 1) % len(self.players)
+            self.small_blind_player = (self.dealer) % len(self.players)
+            self.big_blind_player = (self.small_blind_player + 1) % len(self.players)
+        
         
     
     def play_round(self):
@@ -180,7 +222,31 @@ class GameEngine():
         while True:
             
             # hasPlayedThisCheckRound
+            nextTableCards = False
             if all([player.hasPlayedThisCheckRound for player in self.players if not player.hasFolded and not player.isAllIn]):
+                nextTableCards = True
+
+            # Check if remaining player(s) have matched the biggest allin
+            biggest_allin = 0
+            for player in self.players:
+                if player.stack == 0:
+                    assert player.isAllIn, "\n\nPlayer stack is 0, but isAllIn is not True, player: " + player.name
+                if player.isAllIn and player.bet > biggest_allin:
+                    biggest_allin = player.bet
+            n_unfinnished_players = 0
+            for player in self.players:
+                if not player.hasFolded and not player.isAllIn and player.bet < biggest_allin:
+                    n_unfinnished_players += 1
+            if n_unfinnished_players == 0:
+                nextTableCards = True
+                
+
+                
+
+                if not player.hasFolded and not player.isAllIn:
+                    n_unfinnished_players += 1
+                
+            if nextTableCards:
                 # Add cards to table, if needed
                 print("All players have played this check round")
 
@@ -225,16 +291,11 @@ class GameEngine():
                 playing_player = (playing_player + 1) % len(self.players)
                 continue
             
-
-
-            # count = 0
-            # for player in self.players:
-            #     if player.hasFolded or player.isAllIn:
-            #         count += 1
-            # if count == len(self.players) - 1:
-            #     break
-            
-            playermove = self.player_play(self.players[playing_player])
+            playermove = None
+            if n_unfinnished_players > 0:
+                playermove = self.player_play(self.players[playing_player])
+            else:
+                continue
 
             # FOLD
             if playermove == "fold":
@@ -260,7 +321,8 @@ class GameEngine():
             
             # ALLIN
             if playermove == "allin":
-                pass
+                for player in self.players:
+                    player.hasPlayedThisCheckRound = False
             
             # If out of money, but still in round
             if self.players[playing_player].stack == 0:
@@ -274,9 +336,7 @@ class GameEngine():
             # TODO?: Logic for the case of allin that is lower than the other bets
             
         self.score_winner()
-        self.dealer = (self.dealer + 1) % len(self.players)
-        self.small_blind_player = (self.small_blind_player + 1) % len(self.players)
-        self.big_blind_player = (self.big_blind_player + 1) % len(self.players)
+        return
 
 
 
@@ -288,26 +348,39 @@ class GameEngine():
             if not player.hasFolded:
                 candidates.append(player)
 
-        assert len(candidates) > 0, "\n\nNo candidates for winner, implement fix"
+        assert len(candidates) > 0, "\n\nERROR No candidates for winner"
 
         winner = candidates[0]
+        number_of_winners = 1
+
+        
         if len(candidates) > 1:
-            print("Table cards:")
-            print(self.table_cards)
-            print()
+            print("\nTable cards:", self.table_cards, "\n")
             highest_hand = 0
             for player in candidates:
-                print(player.name, player.hand, "\n")
-                score = self.assign_value_to_hand(player.hand, self.table_cards)
+                score, hand_type = self.assign_value_to_hand(player.hand, self.table_cards)
+                print(player.name, player.hand, " :",hand_type ,"\n")
                 if score > highest_hand:
                     highest_hand = score
                     winner = player
+                    number_of_winners = 1
+                elif score == highest_hand:
+                    number_of_winners += 1
+            if number_of_winners > 1:
+                assert False, "\n\nImplement code for multiple winners"
+
             
         pot = 0
-
+        winner_bet = winner.bet
         for player in self.players:
-            pot += player.bet
-            player.bet = 0
+            if player.bet > winner_bet:
+                pot += winner_bet
+                player.bet -= winner_bet
+                player.stack += player.bet
+                player.bet = 0
+            else:
+                pot += player.bet
+                player.bet = 0
         
         print("Winner: ", winner.name)
         print("wins the pot: ", pot)
@@ -321,10 +394,11 @@ class GameEngine():
     
     def assign_value_to_hand(self, hand, table_cards):
         highest_hand = 0
+        highest_hand_type = "High card"
 
         tmp_cards = hand + table_cards
-        print (tmp_cards)
-        print()
+        # print (tmp_cards)
+        # print()
 
         cards = []
 
@@ -376,21 +450,23 @@ class GameEngine():
 
     # ROYAL STRAIGHT FLUSH ---------------------------
                 if handValue == ROYAL_FLUSH_VALUE:
-                    print("Royal straight flush")
-                    print(straight_flush)
+                    # print("Royal straight flush")
+                    # print(straight_flush)
                     if handValue > highest_hand:
+                        highest_hand_type = "Royal straight flush"
                         highest_hand = handValue
                 
                 else:
     # STRAIGHT FLUSH ---------------------------
-                    print("Straight flush")
-                    print(straight_flush)
+                    # print("Straight flush")
+                    # print(straight_flush)
                     if handValue > highest_hand:
+                        highest_hand_type = "Straight flush"
                         highest_hand = handValue
 
     # FLUSH ---------------------------
-            print("Flush")
-            print(most_common_suit)
+            # print("Flush")
+            # print(most_common_suit)
             # handValue = FLUSH_VALUE + all the 5 highest cards in hand
             handValue = FLUSH_VALUE
             # all the 5 highest cards in hand, that are of the same suit, gets added to hand value
@@ -403,6 +479,7 @@ class GameEngine():
                         break
             print(handValue)
             if handValue > highest_hand:
+                highest_hand_type = "Flush"
                 highest_hand = handValue
 
     # FOUR OF A KIND ---------------------------
@@ -415,16 +492,17 @@ class GameEngine():
         most_common_value = max(values, key=values.get)
         most_common_value_n = values[most_common_value]
         if most_common_value_n == 4:
-            print("Four of a kind")
-            print(most_common_value)
+            # print("Four of a kind")
+            # print(most_common_value)
             highest_card = 0
             for card in cards:
                 if card[:-1] != most_common_value:
                     if int(card[:-1]) > highest_card:
                         highest_card = int(card[:-1])
-            print("Highest card: ", highest_card)
+            # print("Highest card: ", highest_card)
             handValue = FOUR_OF_A_KIND_VALUE + int(most_common_value)*100 + highest_card
             if handValue > highest_hand:
+                highest_hand_type = "Four of a kind"
                 highest_hand = handValue
 
         if most_common_value_n == 3:
@@ -432,10 +510,11 @@ class GameEngine():
             for card in cards:
                 if card[:-1] != most_common_value:
                     if values[card[:-1]] == 2:
-                        print("Full house")
-                        print(most_common_value, card[:-1])
+                        # print("Full house")
+                        # print(most_common_value, card[:-1])
                         handValue = FULL_HOUSE_VALUE + int(most_common_value)*100 + int(card[:-1])
                         if handValue > highest_hand:
+                            highest_hand_type = "Full house"
                             highest_hand = handValue
                     
     # THREE OF A KIND ---------------------------
@@ -450,10 +529,11 @@ class GameEngine():
                     elif int(card[:-1]) > seccound_highest_card:
                         seccound_highest_card = int(card[:-1])
             
-            print("Three of a kind")
-            print(most_common_value)
+            # print("Three of a kind")
+            # print(most_common_value)
             handValue = THREE_OF_A_KIND_VALUE + int(most_common_value)*100 + highest_card*10 + seccound_highest_card
             if handValue > highest_hand:
+                highest_hand_type = "Three of a kind"
                 highest_hand = handValue
     
     # TWO PAIR ---------------------------
@@ -471,16 +551,28 @@ class GameEngine():
                         highest_card = int(card[:-1])
             if seccound_most_common_value != 0:
 
-                print("Two pair")
-                print(most_common_value, seccound_most_common_value)
+                # print("Two pair")
+                # print(most_common_value, seccound_most_common_value)
                 handValue = TWO_PAIR_VALUE + int(most_common_value)*100 + int(seccound_most_common_value)*100 + highest_card
                 if handValue > highest_hand:
+                    highest_hand_type = "Two pair"
                     highest_hand = handValue
             else:
-                print("Pair")
-                print(most_common_value)
-                handValue = PAIR_VALUE + int(most_common_value)*100 + highest_card
+    # PAIR ---------------------------
+                # print("Pair")
+                # print(most_common_value)
+                handValue = PAIR_VALUE + int(most_common_value)*10000 + highest_card
+
+                multiplier = 1000
+                for card in reversed(cards):
+                    if card[:-1] != most_common_value:
+                        handValue += int(card[:-1])*multiplier
+                        multiplier = int(multiplier / 10)
+                        if multiplier == 0:
+                            break
+
                 if handValue > highest_hand:
+                    highest_hand_type = "Pair"
                     highest_hand = handValue
             
 
@@ -496,10 +588,11 @@ class GameEngine():
             else:
                 straight.append(card)
         if len(straight) >= 5:
-            print("Straight")
-            print(straight)
+            # print("Straight")
+            # print(straight)
             handValue = STRAIGHT_VALUE + int(straight[-1][:-1])
             if handValue > highest_hand:
+                highest_hand_type = "Straight"
                 highest_hand = handValue
 
 
@@ -513,17 +606,18 @@ class GameEngine():
                 break
         if handValue > highest_hand:
             highest_hand = handValue
-
-        print("-----------------")
-        return highest_hand
+        
+        # print(highest_hand_type)
+        # print("-----------------")
+        return highest_hand, highest_hand_type
 
 
     def run_sim(self):
         for _ in range(NUMBER_OF_ROUNDS):
             self.play_round()
             
-            
             self.print_gamestate()
+            
             test_total_money(self.players, self.total_pot, 3)
     
             n = 0
@@ -535,6 +629,8 @@ class GameEngine():
                     n += 1
 
             test_total_money(self.players, self.total_pot, 4)
+
+            self.rotate_dealer_and_blinds()
  
             if len(self.players) == 1:
                 print("\n------------------------------------------\n     WINNER:\n    ", self.players[0].name)
@@ -569,8 +665,8 @@ class Player():
         }
     
     def payBlind(self, amount):
-        if amount > self.stack:
-            print("Blind amount is more than stack. Going allin for player:", self.name)
+        if amount >= self.stack:
+            print("Blind amount is more than or equal to stack. Going allin for player:", self.name)
             self.bet += self.stack
             self.stack = 0
             self.isAllIn = True
@@ -650,8 +746,11 @@ class Player():
                     highest_bet = player["bet"]
             call_amount = highest_bet - self.bet
             if call_amount > self.stack:
-                print("BOT ERROR, call amount is more than stack, player:", self.name)
-                return "fold", 0
+                print("Call amount is more than stack, going all in. player:", self.name)
+                self.bet += self.stack
+                self.stack = 0
+                self.isAllIn = True
+                return "allin", 0
             else:
                 self.stack -= call_amount
                 self.bet += call_amount
@@ -669,7 +768,6 @@ class Player():
         
         print("CODE_ERROR, reached end: ", self.name)
         return "fold", 0
-        
 
 
 
