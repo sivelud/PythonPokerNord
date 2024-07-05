@@ -6,3 +6,4 @@ def yourBot(gameState, yourPlayersIndex, yourHand):
     # WRITE YOUR CODE HERE
 
     return move, amount
+    
