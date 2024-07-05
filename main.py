@@ -1,7 +1,7 @@
 import copy
 import random
 
-NUMBER_OF_ROUNDS = 20
+NUMBER_OF_ROUNDS = 200000
 STACK = 1000
 
 from exampleBots import raiseBot
@@ -122,11 +122,16 @@ class GameEngine():
         }
     
     def print_gamestate(self):
-        print()
+        pot = 0
+        for player in self.players:
+            pot += player.bet
+
+        print("\n---------------------------------------------------------------")
         print(f"{'PlayerName':<15}{'Bet':<10}{'Stack':<10}{'HasFolded':<15}{'IsAllIn':<10}")
         for player in self.players:
             print(f"{player.name:<15}{player.bet:<10}{player.stack:<10}{str(player.hasFolded):<15}{str(player.isAllIn):<10}")
-        print()
+        print("\nTotal pot:", str(pot),"")
+        print("---------------------------------------------------------------\n")
     
     def deal_cards(self):
         self.deck.shuffle_and_reset()
@@ -235,13 +240,15 @@ class GameEngine():
             if playermove == "fold":
                 self.players[playing_player].hasFolded = True
                 players_left -= 1
-                if players_left == 1:
-                    # print the name of the only player left
-                    for player in self.players:
-                        # print("checking player folded: ", player.name, player.hasFolded)
-                        if not player.hasFolded:
-                            print("Winner of this round: ", player.name)
-                            return
+                nPlayerFolded = 0
+                for player in self.players:
+                    if player.hasFolded:
+                        nPlayerFolded += 1
+                if nPlayerFolded == len(self.players) - 1:
+                    self.score_winner()
+                    return
+                    
+                
             # CALL or CHECK
             if playermove == "check" or playermove == "call":
                 self.players[playing_player].hasPlayedThisCheckRound = True
@@ -280,29 +287,34 @@ class GameEngine():
         for player in self.players:
             if not player.hasFolded:
                 candidates.append(player)
-        
 
-        print("Table cards:")
-        print(self.table_cards)
-        print()
-        highest_hand = 0
-        for player in candidates:
-            print(player.name, player.hand, "\n")
-            score = self.assign_value_to_hand(player.hand, self.table_cards)
-            if score > highest_hand:
-                highest_hand = score
-                winner = player
-        
+        assert len(candidates) > 0, "\n\nNo candidates for winner, implement fix"
+
+        winner = candidates[0]
+        if len(candidates) > 1:
+            print("Table cards:")
+            print(self.table_cards)
+            print()
+            highest_hand = 0
+            for player in candidates:
+                print(player.name, player.hand, "\n")
+                score = self.assign_value_to_hand(player.hand, self.table_cards)
+                if score > highest_hand:
+                    highest_hand = score
+                    winner = player
+            
         pot = 0
 
         for player in self.players:
             pot += player.bet
             player.bet = 0
-        print("\nTotal pot: ", pot, "----\n")
         
         print("Winner: ", winner.name)
-        print("Pot: ", pot)
+        print("wins the pot: ", pot)
         winner.stack += pot
+
+        for player in self.players:
+            player.bet = 0
         
         test_total_money(self.players, self.total_pot, 2)
  
@@ -509,20 +521,15 @@ class GameEngine():
     def run_sim(self):
         for _ in range(NUMBER_OF_ROUNDS):
             self.play_round()
-            # Print players money
-            for player in self.players:
-                print(player.name, player.stack)
-            n = 0
-
             
-
+            
+            self.print_gamestate()
             test_total_money(self.players, self.total_pot, 3)
     
+            n = 0
             while n < len(self.players):
                 if self.players[n].stack == 0:
-                    print("Player ", self.players[n].name, " is out of money, removing from game")
-                    # print stack and bet
-                    print("stack: ", self.players[n].stack, " bet: ", self.players[n].bet)
+                    print("Player ", self.players[n].name, " is out of money, and leaves the table")
                     self.players.remove(self.players[n])
                 else:
                     n += 1
@@ -530,8 +537,9 @@ class GameEngine():
             test_total_money(self.players, self.total_pot, 4)
  
             if len(self.players) == 1:
-                print("\n", self.players[0].name, " WINS THE GAME")
-                print("\ndebug: stack of", self.players[0].name, self.players[0].stack, "\n bet: ", self.players[0].bet)
+                print("\n------------------------------------------\n     WINNER:\n    ", self.players[0].name)
+                print("\n    Stack: ", self.players[0].stack,)
+                print("------------------------------------------")
                 
                 return
                     
@@ -562,7 +570,7 @@ class Player():
     
     def payBlind(self, amount):
         if amount > self.stack:
-            print("Blind amount is more than stack, player, adding the rest of the money as a small blind for player:", self.name)
+            print("Blind amount is more than stack. Going allin for player:", self.name)
             self.bet += self.stack
             self.stack = 0
             self.isAllIn = True
