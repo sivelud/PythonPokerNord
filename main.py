@@ -1,7 +1,7 @@
 import copy
 import random
 
-NUMBER_OF_ROUNDS = 200000
+NUMBER_OF_ROUNDS = 2
 STACK = 1000
 
 from exampleBots import raiseBot
@@ -16,11 +16,11 @@ PLAYERS_manual = [
         "bot": manualBot,
         "stack": STACK *10
     },
-    # {
-    #     "name": "raiseBot",
-    #     "bot": raiseBot,
-    #     "stack": STACK
-    # },
+    {
+        "name": "raiseBot",
+        "bot": raiseBot,
+        "stack": STACK
+    },
     # {
     #     "name": "callBot",
     #     "bot": callBot,
@@ -76,7 +76,7 @@ PLAYERS_auto =     [
     },
     ]
 
-PLAYERS = PLAYERS_auto
+PLAYERS = PLAYERS_manual
 
 def test_total_money(players, total, id):
     total_money = 0
@@ -177,9 +177,12 @@ class GameEngine():
 
     def player_play(self, player):
         print()
-        # print("Player ", player.name, " is playing...")
         move, amount = player.play(self.generate_gamestate(), self.players.index(player))
-        print("Player ", player.name, " has played", move, amount)
+        if move == "raise":
+            print("Player", player.name, " has played:", move, amount)
+        else:
+            print("Player", player.name, " has played:", move)
+
         print()
         return move
     
@@ -238,6 +241,7 @@ class GameEngine():
                 if not player.hasFolded and not player.isAllIn and player.bet < biggest_allin:
                     n_unfinnished_players += 1
             if n_unfinnished_players == 0:
+                
                 nextTableCards = True
                 
 
@@ -366,25 +370,30 @@ class GameEngine():
                     number_of_winners = 1
                 elif score == highest_hand:
                     number_of_winners += 1
-            if number_of_winners > 1:
-                assert False, "\n\nImplement code for multiple winners"
 
+        # More than 1 winner
+        if number_of_winners > 1:
+            assert False, "\n\nImplement code for multiple winners"
+
+
+        # 1 winner
+        else:
             
-        pot = 0
-        winner_bet = winner.bet
-        for player in self.players:
-            if player.bet > winner_bet:
-                pot += winner_bet
-                player.bet -= winner_bet
-                player.stack += player.bet
-                player.bet = 0
-            else:
-                pot += player.bet
-                player.bet = 0
+            pot = 0
+            winner_bet = winner.bet
+            for player in self.players:
+                if player.bet > winner_bet:
+                    pot += winner_bet
+                    player.bet -= winner_bet
+                    player.stack += player.bet
+                    player.bet = 0
+                else:
+                    pot += player.bet
+                    player.bet = 0
         
-        print("Winner: ", winner.name)
-        print("wins the pot: ", pot)
-        winner.stack += pot
+            print("Winner: ", winner.name)
+            print("wins the pot: ", pot)
+            winner.stack += pot
 
         for player in self.players:
             player.bet = 0
@@ -732,6 +741,16 @@ class Player():
                 self.bet += self.stack
                 self.stack = 0
                 return "allin", 0
+            
+            # see if the raise is as much or more than largest bet
+            highest_bet = 0
+            for player in state["players"]:
+                if player["bet"] > highest_bet:
+                    highest_bet = player["bet"]
+            if amount < highest_bet:
+                print("Raise amount is less than highest bet. Folding. player:", self.name)
+                return "fold", 0
+            
             
             self.stack -= amount
             self.bet += amount
