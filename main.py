@@ -1,7 +1,7 @@
 import copy
 import random
 
-NUMBER_OF_ROUNDS = 2
+NUMBER_OF_ROUNDS = 10000
 STACK = 1000
 
 from exampleBots import raiseBot
@@ -21,8 +21,13 @@ PLAYERS_manual = [
         "bot": raiseBot,
         "stack": STACK
     },
+    {
+        "name": "callBot",
+        "bot": callBot,
+        "stack": STACK
+    },
     # {
-    #     "name": "callBot",
+    #     "name": "callBot2",
     #     "bot": callBot,
     #     "stack": STACK
     # },
@@ -31,11 +36,11 @@ PLAYERS_manual = [
     #     "bot": checkBot,
     #     "stack": STACK
     # },
-    # {
-    #     "name": "foldBot",
-    #     "bot": foldBot,
-    #     "stack": STACK
-    # },
+    {
+        "name": "foldBot",
+        "bot": foldBot,
+        "stack": STACK
+    },
     {
         "name": "allinBot",
         "bot": allinBot,
@@ -168,6 +173,9 @@ class GameEngine():
             print(f"{player.name:<15}{player.bet:<10}{player.stack:<10}{str(player.hasFolded):<15}{str(player.isAllIn):<10}")
         print("\nTotal pot:", str(pot),"")
         print("---------------------------------------------------------------\n")
+
+    def print_table_cards(self):
+        print("\nTable:", self.table_cards, "\n")
     
     def deal_cards(self):
         self.deck.shuffle_and_reset()
@@ -205,8 +213,12 @@ class GameEngine():
             self.small_blind_player = (self.dealer) % len(self.players)
             self.big_blind_player = (self.small_blind_player + 1) % len(self.players)
         
-        
-    
+
+    # skal:
+    # - dele ut kort
+    # - betale blinds
+    # - prompt player for move
+    # - legge ut kort på bordet
     def play_round(self):
         print("\n-----Starting new round-----\n")
         self.deal_cards()
@@ -217,130 +229,91 @@ class GameEngine():
         self.players[self.small_blind_player].payBlind(self.small_blind_amount)
         # Big blind
         self.players[self.big_blind_player].payBlind(self.big_blind_amount)
-
         # playing_player = dealer index + 1 modulo number of players
-        playing_player = (self.dealer + 1) % len(self.players)
+        playing_player = self.big_blind_player + 1 % len(self.players)
 
-        players_left = len(self.players)
+        has_matched_n = -1
+        previous_highest_bet = 0
         while True:
+            next_bid_round = False
+            # Check if all except one player has folded
+            n_folded = 0
+            for player in self.players:
+                if player.hasFolded:
+                    n_folded += 1
+            if n_folded == len(self.players) - 1:
+                self.score_winner()
+                return
+
+            # Find highest bet
+            highest_bet = 0
+            for player in self.players:
+                if player.bet > highest_bet:
+                    highest_bet = player.bet
+
+            # Check if all players have matched the highest bet, or if it has increased
+            if highest_bet > previous_highest_bet:
+                previous_highest_bet = highest_bet
+                has_matched_n = 0
+
+
+            # Sees if all the players have matched the highest bet
+            if previous_highest_bet == highest_bet and has_matched_n == len(self.players):
+                print("All players have matched the highest bet")
+                next_bid_round = True
+                has_matched_n = 0
+           
+            has_matched_n += 1
+
+            self.print_gamestate()
+
             
-            # hasPlayedThisCheckRound
-            nextTableCards = False
-            if all([player.hasPlayedThisCheckRound for player in self.players if not player.hasFolded and not player.isAllIn]):
-                nextTableCards = True
 
-            # Check if remaining player(s) have matched the biggest allin
-            biggest_allin = 0
-            for player in self.players:
-                if player.stack == 0:
-                    assert player.isAllIn, "\n\nPlayer stack is 0, but isAllIn is not True, player: " + player.name
-                if player.isAllIn and player.bet > biggest_allin:
-                    biggest_allin = player.bet
-            n_unfinnished_players = 0
-            for player in self.players:
-                if not player.hasFolded and not player.isAllIn and player.bet < biggest_allin:
-                    n_unfinnished_players += 1
-            if n_unfinnished_players == 0:
+            if not next_bid_round:
+                if self.players[playing_player].hasFolded:
+                    print("Player", self.players[playing_player].name, "has already folded")
+                    playing_player = (playing_player + 1) % len(self.players)
                 
-                nextTableCards = True
+                elif self.players[playing_player].isAllIn:
+                    print("Player", self.players[playing_player].name, "is already all in")
+                    playing_player = (playing_player + 1) % len(self.players)
                 
+                # elif self.players[playing_player].bet == highest_bet:
+                #     if highest_bet == self.big_blind_amount:
+                #         self.player_play(self.players[playing_player])
+                #         playing_player = (playing_player + 1) % len(self.players)
+                #     else:
+                #         print("Player", self.players[playing_player].name, "has already matched the highest bet")
+                #         playing_player = (playing_player + 1) % len(self.players)
+                    
+                else:
+                    self.print_table_cards()
+                    if self.players[playing_player].name == "manualBot":
+                        self.players[playing_player].print_hand()
+                    self.player_play(self.players[playing_player])
+                    playing_player = (playing_player + 1) % len(self.players)
 
-                
-
-                if not player.hasFolded and not player.isAllIn:
-                    n_unfinnished_players += 1
-                
-            if nextTableCards:
-                # Add cards to table, if needed
-                print("All players have played this check round")
-
-                number_of_table_cards = 0
-                for card in self.table_cards:
-                    if card is not None:
-                        number_of_table_cards += 1
-
-                if number_of_table_cards == 0:
+            else:
+                print("\n- Next bid round -\n")
+                # Deal next cards:
+                if self.table_cards[0] is None:
                     self.table_cards[0] = self.deck.draw_card()
                     self.table_cards[1] = self.deck.draw_card()
                     self.table_cards[2] = self.deck.draw_card()
-                    print("Table cards: ", self.table_cards)
-                    for player in self.players:
-                        player.hasPlayedThisCheckRound = False
-                elif number_of_table_cards == 3:
+                elif self.table_cards[3] is None:
                     self.table_cards[3] = self.deck.draw_card()
-                    print("Table cards: ", self.table_cards)
-                    for player in self.players:
-                        player.hasPlayedThisCheckRound = False
-                elif number_of_table_cards == 4:
+                elif self.table_cards[4] is None:
                     self.table_cards[4] = self.deck.draw_card()
-                    print("Table cards: ", self.table_cards)
-                    for player in self.players:
-                        player.hasPlayedThisCheckRound = False
-                else:
-                    print("Scoring a winner...")
-                    break
-                        
-
-            self.print_gamestate()
-            
-            if self.players[playing_player].hasFolded or self.players[playing_player].isAllIn:
-
-                if self.players[playing_player].isAllIn:
-                    print(self.players[playing_player].name, "is already all in")
-                elif self.players[playing_player].hasFolded:
-                    print(self.players[playing_player].name, "has already folded")
-                else:
-                    # print("ERROR, player hasFolded or isAllIn is not True, player:", self.players[playing_player].name)
-                    assert False, "\n\nERROR, player hasFolded or isAllIn is not True, player: " + self.players[playing_player].name
-                playing_player = (playing_player + 1) % len(self.players)
-                continue
-            
-            playermove = None
-            if n_unfinnished_players > 0:
-                playermove = self.player_play(self.players[playing_player])
-            else:
-                continue
-
-            # FOLD
-            if playermove == "fold":
-                self.players[playing_player].hasFolded = True
-                players_left -= 1
-                nPlayerFolded = 0
-                for player in self.players:
-                    if player.hasFolded:
-                        nPlayerFolded += 1
-                if nPlayerFolded == len(self.players) - 1:
+                    
+                elif self.table_cards[4] is not None:
                     self.score_winner()
                     return
-                    
-                
-            # CALL or CHECK
-            if playermove == "check" or playermove == "call":
-                self.players[playing_player].hasPlayedThisCheckRound = True
+                else:
+                    assert False, "\n\nError in next_bid_round. (no condition met)"
+                playing_player = (self.dealer + 1) % len(self.players)
+                has_matched_n = 0
 
-            # RAISE
-            if playermove == "raise":
-                for player in self.players:
-                    player.hasPlayedThisCheckRound = False
-            
-            # ALLIN
-            if playermove == "allin":
-                for player in self.players:
-                    player.hasPlayedThisCheckRound = False
-            
-            # If out of money, but still in round
-            if self.players[playing_player].stack == 0:
-                self.players[playing_player].isAllIn = True
-
-            # for player in self.players:
-            #     print(player.name, player.bet)
-
-            playing_player = (playing_player + 1) % len(self.players)
-                    
-            # TODO?: Logic for the case of allin that is lower than the other bets
-            
-        self.score_winner()
-        return
+        assert False, "\n\nError in play_round (reached end)"
 
 
 
@@ -673,6 +646,9 @@ class Player():
             "hasFolded": self.hasFolded
         }
     
+    def print_hand(self):
+        print("\n"+ str(self.name), "hand:", self.hand, "\n")
+    
     def payBlind(self, amount):
         if amount >= self.stack:
             print("Blind amount is more than or equal to stack. Going allin for player:", self.name)
@@ -749,6 +725,7 @@ class Player():
                     highest_bet = player["bet"]
             if amount < highest_bet:
                 print("Raise amount is less than highest bet. Folding. player:", self.name)
+                self.hasFolded = True
                 return "fold", 0
             
             

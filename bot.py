@@ -5,5 +5,7 @@ def yourBot(gameState, yourPlayersIndex, yourHand):
 
     # WRITE YOUR CODE HERE
 
+    move = "fold"
+
     return move, amount
     

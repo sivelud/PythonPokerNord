@@ -8,6 +8,7 @@ deck = ["2♠", "3♠", "4♠", "5♠", "6♠", "7♠", "8♠", "9♠", "T♠", 
 example_yourHand = ["5♠", "8♠"]
 
 
+
 example_gameState = {
     "players": [
         {
@@ -102,7 +103,12 @@ def manualBot(gamesState, yourPlayersIndex, yourHand):
         move = int(input("Enter move: "))
 
     print(movarr[move], "selected")
-    amount = int(input("Enter ammount: "))
+    amount = input("Enter ammount: ")
+    # if amount is none, or not a integer, set it to 0 :
+    if not amount:
+        amount = 0
+    if isinstance(amount, int) == False:
+        amount = 0
     move = movarr[move]
     print("Ammount:", amount)
 
