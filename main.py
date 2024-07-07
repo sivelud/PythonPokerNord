@@ -364,6 +364,7 @@ class GameEngine():
             pot = 0
             for player in self.players:
                 pot += player.bet
+                player.bet = player.bet*2
                 # player.bet = 0
             
             lastpot = -1
@@ -384,16 +385,17 @@ class GameEngine():
                         winnerr.stack += 1
                         winnerr.bet -= 1
                         pot -= 1
-                        print("giving 1 pot to: ", winnerr.name, ". he now has ", winnerr.stack)
+                        # print("giving 1 pot to: ", winnerr.name, ". he now has ", winnerr.stack)
                     else:
                         print("removing winner: ", winnerr.name)
+                        print("Their bet was not high enough to win any more of the pot")
+                        print("They now have: ", winnerr.stack)
+
                         winners.remove(winnerr)
+
                 
 
 
-            # Reset the bet of players
-            for player in self.players:
-                player.bet = 0            
 
 
         # 1 winner
@@ -414,10 +416,13 @@ class GameEngine():
             print("Winner: ", winner.name)
             print("wins the pot: ", pot)
             winner.stack += pot
-
-        for player in self.players:
-            player.bet = 0
         
+        # Reset the bet of players
+        for player in self.players:
+            player.bet = 0            
+
+        # assert False, "Split implementation not finished"
+
         test_total_money(self.players, self.total_pot, 2)
  
     
