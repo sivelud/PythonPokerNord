@@ -1,8 +1,12 @@
 import copy
 import random
+import matplotlib.pyplot as plt
 
-NUMBER_OF_ROUNDS = 10000
+NUMBER_OF_ROUNDS = 1
 STACK = 1000
+
+SMALL_BLIND = 10
+BIG_BLIND = 20
 
 from exampleBots import raiseBot
 from exampleBots import manualBot
@@ -10,6 +14,8 @@ from exampleBots import checkBot
 from exampleBots import callBot
 from exampleBots import foldBot
 from exampleBots import allinBot
+from lubot import yourBot as lubot
+from stupid import yourBot as stupid
 PLAYERS_manual = [
     {
         "name": "manualBot",
@@ -60,13 +66,13 @@ PLAYERS_auto =     [
         "stack": STACK
     },
     {
-        "name": "callBot",
-        "bot": callBot,
+        "name": "checkBot",
+        "bot": checkBot,
         "stack": STACK
     },
     {
-        "name": "checkBot",
-        "bot": checkBot,
+        "name": "callBot",
+        "bot": callBot,
         "stack": STACK
     },
     {
@@ -74,11 +80,33 @@ PLAYERS_auto =     [
         "bot": foldBot,
         "stack": STACK
     },
+    # {
+    #     "name": "allinBot",
+    #     "bot": allinBot,
+    #     "stack": STACK
+    # },
     {
-        "name": "allinBot",
-        "bot": allinBot,
+        "name": "lubot",
+        "bot": lubot,
         "stack": STACK
     },
+    {
+        "name": "callBot2",
+        "bot": callBot,
+        "stack": STACK
+    },
+    {
+        "name": "stupid",
+        "bot": stupid,
+        "stack": STACK
+    },
+    #manual
+    # {
+    #     "name": "manualBot",
+    #     "bot": manualBot,
+    #     "stack": STACK
+    # },
+
     ]
 
 PLAYERS = PLAYERS_auto
@@ -90,6 +118,13 @@ def test_total_money(players, total, id):
         total_money += player.bet
     assert total_money == total, "\n\nTotal money (" + str(total_money) + ") is not the same as the total stack (" + str(total)+") of the players. id:(" + str(id) + ")"
 
+
+# def test_scenario_split_pot():
+#     game = GameEngine()
+#     game.players = []
+
+    
+#     assert False, "\n\nSplit pot scenario not implemented"
 
 
 class Deck():
@@ -131,8 +166,8 @@ class GameEngine():
         self.deck = Deck()
         self.table_cards = [None, None, None, None, None]
         self.dealer = random.randint(0, len(self.players) - 1)
-        self.small_blind_amount = 10
-        self.big_blind_amount = 20
+        self.small_blind_amount = SMALL_BLIND
+        self.big_blind_amount = BIG_BLIND
         self.rotate_dealer_and_blinds()
         self.min_raise = 1
         self.max_raise = None
@@ -317,113 +352,210 @@ class GameEngine():
 
         assert False, "\n\nError in play_round (reached end)"
 
+    
+    def stack_graph(self):
+        # use matplotlib to plot the stack of the players
+    #     sums = list(range(2, 13))  # Possible sums from 2 to 12
+    # plt.bar(sums, counts, tick_label=sums)
+    # plt.xlabel('Sum of Two Dice')
+    # plt.ylabel('Count')
+    # plt.title('Two Dice Roll Simulation')
+    # plt.show()
+
+        players = self.players
+        names = []
+        stacks = []
+        for player in players:
+            names.append(player.name)
+            stacks.append(player.stack)
+        # plt.bar(sums, counts, tick_label=sums)
+        plt.bar(names, stacks)
+        plt.xlabel('Player')
+        plt.ylabel('Stack')
+        plt.title('Stack of players')
+        plt.show()
+        return
+    
+
+
+
+
 
 
     def score_winner(self):
+
+        for i in range(5):
+            if self.table_cards[i] is None:
+                self.table_cards[i] = self.deck.draw_card()
         test_total_money(self.players, self.total_pot, 1)
-        
+
+        self.print_table_cards()
+
+
+        for player in self.players:
+            player.print_hand()
+
+
+
+        pot = 0
+        for player in self.players:
+            pot += player.bet
+
         candidates = []
         for player in self.players:
             if not player.hasFolded:
+                player.can_win_ammount = player.bet * len(self.players)
+                score, move = self.assign_value_to_hand(player.hand, self.table_cards)
+                player.win_type = move
+                player.handScore = score
                 candidates.append(player)
-
         assert len(candidates) > 0, "\n\nERROR No candidates for winner"
 
-        winner = candidates[0]
-        number_of_winners = 1
+        while pot > 0:
 
-        
-        highest_hand = 0
-        if len(candidates) > 1:
-            print("\nTable cards:", self.table_cards, "\n")
+            # Find the winners
+            winner = candidates[0]
+            highest_hand = 0
             for player in candidates:
-                score, hand_type = self.assign_value_to_hand(player.hand, self.table_cards)
-                print(player.name, player.hand, " :",hand_type ,"\n")
+                score = player.handScore
                 if score > highest_hand:
-                    highest_hand = score
                     winner = player
-                    number_of_winners = 1
-                elif score == highest_hand:
-                    number_of_winners += 1
+                    highest_hand = score
+            if pot > winner.can_win_ammount:
+                winner.stack += winner.can_win_ammount
+                pot -= winner.can_win_ammount
+            else:
+                winner.stack += pot
+                pot = 0
+            print("Winner: ", winner.name, ":", winner.hand, " (", winner.win_type, ")" )
+            candidates.remove(winner)
+            if len(candidates) <= 0:
+                winner.stack += pot
+                pot = 0
 
-        # More than 1 winner
-        if number_of_winners > 1:
-
-            # find all the winners
-            winners = []
-            for player in candidates:
-                score, hand_type = self.assign_value_to_hand(player.hand, self.table_cards)
-                if score == highest_hand:
-                    winners.append(player)
-            for winner_p in winners:
-                print("Winner:", winner_p.name, ":", winner_p.hand)
-
-            # Sort the players based on how close after the dealer they are
-            winners.sort(key=lambda x: (self.players.index(x) - self.dealer) % len(self.players))
-
-            pot = 0
-            for player in self.players:
-                pot += player.bet
-                player.bet = player.bet*2
-                # player.bet = 0
             
-            lastpot = -1
-            infinateloop = 0
-            while pot > 0:
-                if pot == lastpot:
-                    infinateloop += 1
-                    if infinateloop > 5:
-                        assert False, "\n\nInfinateloop in pot split"
-                else:
-                    infinateloop = 0
-                lastpot = pot
+            
                 
-                print("Pot: ", pot)
-                # print winners
-                for winnerr in winners:
-                    if winnerr.bet > 0:
-                        winnerr.stack += 1
-                        winnerr.bet -= 1
-                        pot -= 1
-                        # print("giving 1 pot to: ", winnerr.name, ". he now has ", winnerr.stack)
-                    else:
-                        print("removing winner: ", winnerr.name)
-                        print("Their bet was not high enough to win any more of the pot")
-                        print("They now have: ", winnerr.stack)
-
-                        winners.remove(winnerr)
 
                 
 
-
-
-
-        # 1 winner
-        else:
             
-            pot = 0
-            winner_bet = winner.bet
-            for player in self.players:
-                if player.bet > winner_bet:
-                    pot += winner_bet
-                    player.bet -= winner_bet
-                    player.stack += player.bet
-                    player.bet = 0
-                else:
-                    pot += player.bet
-                    player.bet = 0
-        
-            print("Winner: ", winner.name)
-            print("wins the pot: ", pot)
-            winner.stack += pot
-        
+
+            
+
+            
+            
+            
+
+
         # Reset the bet of players
         for player in self.players:
             player.bet = 0            
 
-        # assert False, "Split implementation not finished"
-
+        self.print_gamestate()
         test_total_money(self.players, self.total_pot, 2)
+        return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+        # # More than 1 winner
+        # if number_of_winners > 1:
+
+        #     # find all the winners
+        #     winners = []
+        #     for player in candidates:
+        #         score, hand_type = self.assign_value_to_hand(player.hand, self.table_cards)
+        #         if score == highest_hand:
+        #             winners.append(player)
+        #     for winner_p in winners:
+        #         print("Winner:", winner_p.name, ":", winner_p.hand)
+
+        #     # Sort the players based on how close after the dealer they are
+        #     winners.sort(key=lambda x: (self.players.index(x) - self.dealer) % len(self.players))
+
+        #     pot = 0
+        #     for player in self.players:
+        #         pot += player.bet
+        #         player.bet = player.bet*2
+        #         # player.bet = 0
+            
+        #     lastpot = -1
+        #     infinateloop = 0
+        #     while pot > 0:
+        #         if pot == lastpot:
+        #             infinateloop += 1
+        #             if infinateloop > 5:
+        #                 assert False, "\n\nInfinateloop in pot split"
+        #         else:
+        #             infinateloop = 0
+        #         lastpot = pot
+                
+        #         print("Pot: ", pot)
+        #         # print winners
+        #         for winnerr in winners:
+        #             if winnerr.bet > 0:
+        #                 winnerr.stack += 1
+        #                 winnerr.bet -= 1
+        #                 pot -= 1
+        #                 # print("giving 1 pot to: ", winnerr.name, ". he now has ", winnerr.stack)
+        #             else:
+        #                 print("removing winner: ", winnerr.name)
+        #                 print("Their bet was not high enough to win any more of the pot")
+        #                 print("They now have: ", winnerr.stack)
+
+        #                 winners.remove(winnerr)
+
+                
+
+
+
+
+        # # 1 winner
+        # else:
+            
+        #     pot = 0
+        #     winner_bet = winner.bet
+        #     for player in self.players:
+        #         if player.bet > winner_bet:
+        #             pot += winner_bet
+        #             player.bet -= winner_bet
+        #             player.stack += player.bet
+        #             player.bet = 0
+        #         else:
+        #             pot += player.bet
+        #             player.bet = 0
+        
+        #     print("Winner: ", winner.name)
+        #     print("wins the pot: ", pot)
+        #     winner.stack += pot
+        
+
+        # # assert False, "Split implementation not finished"
+
+
  
     
     def assign_value_to_hand(self, hand, table_cards):
@@ -647,8 +779,13 @@ class GameEngine():
 
 
     def run_sim(self):
-        for _ in range(NUMBER_OF_ROUNDS):
+        for i in range(NUMBER_OF_ROUNDS):
             self.play_round()
+            if i % 10 == 0:
+                self.big_blind_amount = self.big_blind_amount *2
+                self.small_blind_amount = self.small_blind_amount *2
+
+            # self.stack_graph()
             
             self.print_gamestate()
             
@@ -689,6 +826,10 @@ class Player():
         self.hasFolded = False
         self.isAllIn = False
         self.hasPlayedThisCheckRound = False
+
+    #replace print
+    def __str__(self):
+        return self.name
     
     def playerState(self):
         return {
@@ -716,8 +857,12 @@ class Player():
         hand = copy.deepcopy(self.hand)
         state = copy.deepcopy(gameState)
         index = copy.deepcopy(yourPlayersIndex)
-
-        move, amount = self.botFunction(state, index, hand)
+        try:
+            move, amount = self.botFunction(state, index, hand)
+        except Exception as e:
+            print("CRASHED BOT: ", self.name)
+            move = "fold"
+            amount = 0
 
         # Output validation
         possible_moves = ["fold", "check", "call", "raise", "allin"]
@@ -800,7 +945,7 @@ class Player():
                 if player["bet"] > highest_bet:
                     highest_bet = player["bet"]
             call_amount = highest_bet - self.bet
-            if call_amount > self.stack:
+            if call_amount >= self.stack:
                 print("Call amount is more than stack, going all in. player:", self.name)
                 self.bet += self.stack
                 self.stack = 0

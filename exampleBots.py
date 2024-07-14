@@ -1,3 +1,5 @@
+import random
+
 
 """
 deck = ["2♠", "3♠", "4♠", "5♠", "6♠", "7♠", "8♠", "9♠", "T♠", "J♠", "Q♠", "K♠", "A♠",
@@ -111,5 +113,12 @@ def manualBot(gamesState, yourPlayersIndex, yourHand):
         amount = 0
     move = movarr[move]
     print("Ammount:", amount)
+
+    return move, amount
+
+def randomBot(gameState, yourPlayersIndex, yourHand):
+    
+    move: str = random.choice(["fold", "check", "raise", "call", "allin"])
+    amount: int = 0
 
     return move, amount
