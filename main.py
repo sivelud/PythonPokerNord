@@ -1,5 +1,9 @@
 import copy
 import random
+from gui.ui import *
+
+
+SHOW_UI = True
 
 NUMBER_OF_ROUNDS = 10000
 STACK = 1000
@@ -82,6 +86,9 @@ PLAYERS_auto =     [
     ]
 
 PLAYERS = PLAYERS_auto
+
+if SHOW_UI:
+    ui = UI()
 
 def test_total_money(players, total, id):
     total_money = 0
@@ -268,8 +275,8 @@ class GameEngine():
             has_matched_n += 1
 
             self.print_gamestate()
-
-            
+            if SHOW_UI:
+                ui.render(self.generate_gamestate(), self.players, playing_player)
 
             if not next_bid_round:
                 if self.players[playing_player].hasFolded:
